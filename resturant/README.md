@@ -1,16 +1,36 @@
-# resturant
+# MiniResto - Restaurant Management App
 
-A new Flutter project.
+![App Screenshot](assets/screenshot.png) <!-- Add your screenshot here -->
 
-## Getting Started
+A Flutter-based restaurant management application to handle menu items, orders, and track earnings efficiently.
 
-This project is a starting point for a Flutter application.
+## Features
 
-A few resources to get you started if this is your first Flutter project:
+- **Menu Management**
+  - Add, edit, and delete menu items
+  - Categorize items (Main Course, Fast Food, etc.)
+  - View all menu items in a list
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- **Order Management**
+  - Create new orders with quantity selection
+  - View all orders with status (Pending/Completed)
+  - Mark orders as completed
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Dashboard**
+  - View total orders count
+  - Track earnings from completed orders
+  - Check pending orders
+  - Quick menu summary
+
+## Technologies Used
+
+- Flutter 3.x
+- Dart 3.x
+- Material Design 3
+- State Management: Built-in setState (No external packages)
+
+## Installation
+
+1. Ensure you have Flutter installed:
+   ```bash
+   flutter --version

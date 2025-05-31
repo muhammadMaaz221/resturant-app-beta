@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'SplashScreen.dart';
 
 void main() {
   runApp(const MiniRestoApp());
@@ -11,7 +10,7 @@ class MiniRestoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MiniResto',
+      title: 'M&D Restaurant',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.green,
@@ -30,11 +29,74 @@ class MiniRestoApp extends StatelessWidget {
         ),
       ),
       home: const SplashScreen(),
+      routes: {
+        '/admin': (context) => const AdminLoginScreen(),
+        '/main': (context) => const MainTabScreen(),
+      },
     );
   }
 }
 
-// Rest of your existing code remains the same...
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 2), () {
+      Navigator.pushReplacementNamed(context, '/main');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.green[800],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.restaurant, size: 80, color: Colors.white),
+            const SizedBox(height: 20),
+            Text(
+              'M & D Restaurant',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 20),
+            const CircularProgressIndicator(color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class Order {
+  String itemName;
+  int quantity;
+  double total;
+  String status;
+  String date;
+  bool isApproved;
+
+  Order({
+    required this.itemName,
+    required this.quantity,
+    required this.total,
+    required this.status,
+    required this.date,
+    this.isApproved = false,
+  });
+}
+
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
 
@@ -47,47 +109,39 @@ class _MainTabScreenState extends State<MainTabScreen>
   late TabController _tabController;
   List<Order> orders = [];
   List<MenuItem> menuItems = [
-    MenuItem(name: 'Pizza', price: 500, category: 'Main Course'),
-    MenuItem(name: 'Burger', price: 250, category: 'Fast Food'),
-    MenuItem(name: 'Biryani', price: 300, category: 'Main Course'),
-    MenuItem(name: 'Pasta', price: 350, category: 'Italian'),
-    MenuItem(name: 'Salad', price: 200, category: 'Healthy'),
+    MenuItem(name: 'Pizza', price: 1500),
+    MenuItem(name: 'Burger', price: 750),
+    MenuItem(name: 'Pasta', price: 1050),
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
-  void addOrder(Order order) {
-    setState(() {
-      orders.add(order);
-    });
-    _tabController.animateTo(1); // Switch to orders tab
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
-  void updateOrderStatus(int index) {
+  void addNewOrder(Order newOrder) {
     setState(() {
-      orders[index] = orders[index].copyWith(status: 'Completed');
-    });
-  }
-
-  void addMenuItem(MenuItem item) {
-    setState(() {
-      menuItems.add(item);
+      orders.insert(0, newOrder);
     });
   }
 
-  void updateMenuItem(int index, MenuItem item) {
+  void updateOrderStatus(int index, String newStatus, bool isApproved) {
     setState(() {
-      menuItems[index] = item;
+      orders[index].status = newStatus;
+      orders[index].isApproved = isApproved;
     });
   }
 
-  void deleteMenuItem(int index) {
+  void addMenuItem(MenuItem newItem) {
     setState(() {
-      menuItems.removeAt(index);
+      menuItems.add(newItem);
     });
   }
 
@@ -100,369 +154,545 @@ class _MainTabScreenState extends State<MainTabScreen>
           children: [
             Icon(Icons.restaurant, color: Colors.amber[300]),
             const SizedBox(width: 12),
-            const Text('MiniResto'),
+            const Text('M & D Restaurant'),
           ],
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings),
+            onPressed: () {
+              Navigator.pushNamed(context, '/admin').then((value) {
+                if (value != null && value is MenuItem) {
+                  addMenuItem(value);
+                }
+              });
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.amber[300],
           labelColor: Colors.amber[300],
           unselectedLabelColor: Colors.white.withOpacity(0.8),
           tabs: const [
-            Tab(icon: Icon(Icons.dashboard), text: 'Dashboard'),
-            Tab(icon: Icon(Icons.list_alt), text: 'Orders'),
-            Tab(icon: Icon(Icons.restaurant_menu), text: 'Menu'),
+            Tab(icon: Icon(Icons.dashboard)),
+            Tab(icon: Icon(Icons.history)),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          DashboardTab(orders: orders, onAddOrder: addOrder, menuItems: menuItems),
-          OrdersTab(orders: orders, onApprove: updateOrderStatus),
-          MenuManagementTab(
+          DashboardTab(
+            onAddOrder: addNewOrder,
+            orders: orders,
+            onUpdateStatus: updateOrderStatus,
             menuItems: menuItems,
-            onAddItem: addMenuItem,
-            onUpdateItem: updateMenuItem,
-            onDeleteItem: deleteMenuItem,
           ),
+          OrderHistoryTab(orders: orders),
         ],
       ),
     );
   }
 }
 
-// ------------------ MENU ITEM MODEL ------------------
 class MenuItem {
   final String name;
   final double price;
-  final String category;
 
-  MenuItem({
-    required this.name,
-    required this.price,
-    required this.category,
-  });
-
-  MenuItem copyWith({
-    String? name,
-    double? price,
-    String? category,
-  }) {
-    return MenuItem(
-      name: name ?? this.name,
-      price: price ?? this.price,
-      category: category ?? this.category,
-    );
-  }
+  MenuItem({required this.name, required this.price});
 }
 
-// ------------------ MENU MANAGEMENT TAB ------------------
-class MenuManagementTab extends StatefulWidget {
-  final List<MenuItem> menuItems;
-  final Function(MenuItem) onAddItem;
-  final Function(int, MenuItem) onUpdateItem;
-  final Function(int) onDeleteItem;
-
-  const MenuManagementTab({
-    super.key,
-    required this.menuItems,
-    required this.onAddItem,
-    required this.onUpdateItem,
-    required this.onDeleteItem,
-  });
+class AdminLoginScreen extends StatefulWidget {
+  const AdminLoginScreen({super.key});
 
   @override
-  State<MenuManagementTab> createState() => _MenuManagementTabState();
+  State<AdminLoginScreen> createState() => _AdminLoginScreenState();
 }
 
-class _MenuManagementTabState extends State<MenuManagementTab> {
-  final List<String> categories = [
-    'Main Course',
-    'Fast Food',
-    'Italian',
-    'Healthy',
-    'Dessert',
-    'Beverage'
-  ];
+class _AdminLoginScreenState extends State<AdminLoginScreen> {
+  final TextEditingController _pinController = TextEditingController();
+  bool _isIncorrectPin = false;
+
+  void _checkPin() {
+    if (_pinController.text == '2265') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AdminScreen(
+            onAddMenuItem: (item) {
+              Navigator.pop(context, item);
+            },
+          ),
+        ),
+      );
+    } else {
+      setState(() {
+        _isIncorrectPin = true;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Menu Items',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[800],
-                      ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _showAddEditMenuItemDialog(context, null);
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Item'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[800],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ],
+      appBar: AppBar(
+        title: const Text('Admin Login'),
+        backgroundColor: Colors.green[800],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.admin_panel_settings, size: 80, color: Colors.green),
+            const SizedBox(height: 30),
+            const Text(
+              'Enter Admin PIN',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ),
-          Expanded(
-            child: widget.menuItems.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.restaurant_menu,
-                            size: 60, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No menu items yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+            const SizedBox(height: 20),
+            TextField(
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              obscureText: true,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: 'PIN',
+                errorText: _isIncorrectPin ? 'Incorrect PIN' : null,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[800],
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              onPressed: _checkPin,
+              child: const Text('Login', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminScreen extends StatefulWidget {
+  final Function(MenuItem) onAddMenuItem;
+
+  const AdminScreen({super.key, required this.onAddMenuItem});
+
+  @override
+  State<AdminScreen> createState() => _AdminScreenState();
+}
+
+class _AdminScreenState extends State<AdminScreen> {
+  final TextEditingController _itemNameController = TextEditingController();
+  final TextEditingController _itemPriceController = TextEditingController();
+
+  void _addNewMenuItem() {
+    if (_itemNameController.text.isNotEmpty &&
+        _itemPriceController.text.isNotEmpty) {
+      final newItem = MenuItem(
+        name: _itemNameController.text,
+        price: double.parse(_itemPriceController.text),
+      );
+      widget.onAddMenuItem(newItem);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Menu item added successfully!')),
+      );
+
+      _itemNameController.clear();
+      _itemPriceController.clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mainTabState = context.findAncestorStateOfType<_MainTabScreenState>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Admin Panel'),
+        backgroundColor: Colors.green[800],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add New Menu Item',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _itemNameController,
+              decoration: const InputDecoration(
+                labelText: 'Item Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _itemPriceController,
+              decoration: const InputDecoration(
+                labelText: 'Item Price (PKR)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[800],
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              onPressed: _addNewMenuItem,
+              child: const Text('Add Item', style: TextStyle(color: Colors.white)),
+            ),
+            const SizedBox(height: 30),
+            const Text(
+              'Admin Functions',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.settings),
+                    title: const Text('Restaurant Settings'),
+                    onTap: () {
+                      // Add settings functionality
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.analytics),
+                    title: const Text('View Analytics'),
+                    onTap: () {
+                      // Add analytics functionality
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.receipt),
+                    title: const Text('Generate Reports'),
+                    onTap: () {
+                      // Add reports functionality
+                    },
+                  ),
+                  if (mainTabState != null)
+                    ListTile(
+                      leading: const Icon(Icons.check_circle),
+                      title: const Text('Approve Orders'),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => OrderApprovalScreen(
+                              orders: mainTabState.orders,
+                              onUpdateStatus: mainTabState.updateOrderStatus,
+                            ),
                           ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class OrderApprovalScreen extends StatefulWidget {
+  final List<Order> orders;
+  final Function(int, String, bool) onUpdateStatus;
+
+  const OrderApprovalScreen({
+    super.key, 
+    required this.orders,
+    required this.onUpdateStatus,
+  });
+
+  @override
+  State<OrderApprovalScreen> createState() => _OrderApprovalScreenState();
+}
+
+class _OrderApprovalScreenState extends State<OrderApprovalScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final pendingOrders = widget.orders.where((order) => !order.isApproved && order.status == 'Pending Approval').toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pending Orders Approval'),
+        backgroundColor: Colors.green[800],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => setState(() {}),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+      body: pendingOrders.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.check_circle_outline, size: 60, color: Colors.green),
+                  const SizedBox(height: 20),
+                  Text(
+                    'No Pending Orders',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text('All orders have been processed'),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: pendingOrders.length,
+              itemBuilder: (context, index) {
+                final order = pendingOrders[index];
+                final originalIndex = widget.orders.indexOf(order);
+                
+                return Card(
+                  margin: const EdgeInsets.all(12),
+                  elevation: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              order.itemName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Chip(
+                              label: Text(
+                                'PKR ${order.total.toStringAsFixed(2)}',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              backgroundColor: Colors.green[800],
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Add your first menu item',
-                          style: TextStyle(color: Colors.grey[500]),
+                        Text('Quantity: ${order.quantity}'),
+                        Text('Date: ${order.date}'),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.close, color: Colors.red),
+                              label: const Text('Reject'),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                              ),
+                              onPressed: () {
+                                _showRejectConfirmation(context, originalIndex);
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.check),
+                              label: const Text('Approve'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green[800],
+                              ),
+                              onPressed: () {
+                                widget.onUpdateStatus(originalIndex, 'Approved', true);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Order approved successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                                setState(() {});
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: widget.menuItems.length,
-                    itemBuilder: (context, index) {
-                      final item = widget.menuItems[index];
-                      return Card(
-                        child: ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(Icons.restaurant,
-                                color: Colors.green[800]),
-                          ),
-                          title: Text(
-                            item.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            'Rs ${item.price.toStringAsFixed(0)} • ${item.category}',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.edit,
-                                    color: Colors.blue[700]),
-                                onPressed: () {
-                                  _showAddEditMenuItemDialog(context, index);
-                                },
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.delete,
-                                    color: Colors.red[700]),
-                                onPressed: () {
-                                  _showDeleteDialog(context, index);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
                   ),
+                );
+              },
+            ),
+    );
+  }
+
+  void _showRejectConfirmation(BuildContext context, int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Order'),
+        content: const Text('Are you sure you want to reject this order?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              widget.onUpdateStatus(index, 'Rejected', false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Order rejected'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              Navigator.pop(context);
+              setState(() {});
+            },
+            child: const Text('Reject', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
-
-  void _showAddEditMenuItemDialog(BuildContext context, int? index) {
-    final isEditing = index != null;
-    final item = isEditing ? widget.menuItems[index] : null;
-
-    final nameController =
-        TextEditingController(text: isEditing ? item!.name : '');
-    final priceController = TextEditingController(
-        text: isEditing ? item!.price.toStringAsFixed(0) : '');
-    String selectedCategory =
-        isEditing ? item!.category : categories.first;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(isEditing ? 'Edit Menu Item' : 'Add Menu Item'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Item Name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.restaurant),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: priceController,
-                  decoration: InputDecoration(
-                    labelText: 'Price',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixText: 'Rs ',
-                    prefixIcon: const Icon(Icons.attach_money),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.category),
-                  ),
-                  items: categories.map((category) {
-                    return DropdownMenuItem(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    selectedCategory = value!;
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final name = nameController.text.trim();
-                final price = double.tryParse(priceController.text) ?? 0;
-
-                if (name.isNotEmpty && price > 0) {
-                  final newItem = MenuItem(
-                    name: name,
-                    price: price,
-                    category: selectedCategory,
-                  );
-
-                  if (isEditing) {
-                    widget.onUpdateItem(index, newItem);
-                  } else {
-                    widget.onAddItem(newItem);
-                  }
-
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[800],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(isEditing ? 'Update' : 'Add'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showDeleteDialog(BuildContext context, int index) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Item'),
-          content: Text(
-              'Are you sure you want to delete "${widget.menuItems[index].name}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                widget.onDeleteItem(index);
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
 
-// ------------------ DASHBOARD ------------------
-class DashboardTab extends StatelessWidget {
-  final List<Order> orders;
+class DashboardTab extends StatefulWidget {
   final Function(Order) onAddOrder;
+  final List<Order> orders;
+  final Function(int, String, bool) onUpdateStatus;
   final List<MenuItem> menuItems;
 
   const DashboardTab({
     super.key,
-    required this.orders,
     required this.onAddOrder,
+    required this.orders,
+    required this.onUpdateStatus,
     required this.menuItems,
   });
 
   @override
-  Widget build(BuildContext context) {
-    int totalOrders = orders.length;
-    int pendingOrders =
-        orders.where((order) => order.status == 'Pending').length;
-    double earnings = orders
-        .where((order) => order.status == 'Completed')
-        .fold(0.0, (sum, order) => sum + order.total);
+  State<DashboardTab> createState() => _DashboardTabState();
+}
 
+class _DashboardTabState extends State<DashboardTab> {
+  int get totalOrders => widget.orders.length;
+
+  double get totalEarnings {
+    return widget.orders
+        .where((order) => order.isApproved)
+        .fold(0, (sum, order) => sum + order.total);
+  }
+
+  int get pendingOrders {
+    return widget.orders.where((order) => !order.isApproved && order.status == 'Pending Approval').length;
+  }
+
+  void _showNewOrderDialog(BuildContext context) {
+    if (widget.menuItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No menu items available. Please add some in admin panel.')),
+      );
+      return;
+    }
+
+    String selectedItem = widget.menuItems.first.name;
+    int quantity = 1;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Add New Order'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedItem,
+                    items: widget.menuItems
+                        .map((item) => DropdownMenuItem(
+                              value: item.name,
+                              child: Text(
+                                  '${item.name} (PKR ${item.price.toStringAsFixed(2)})'),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedItem = value!;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Menu Item',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: '1',
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      quantity = int.tryParse(value) ?? 1;
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final selectedMenuItem = widget.menuItems
+                        .firstWhere((item) => item.name == selectedItem);
+                    final newOrder = Order(
+                      itemName: selectedItem,
+                      quantity: quantity,
+                      total: selectedMenuItem.price * quantity,
+                      status: 'Pending Approval',
+                      date: DateTime.now().toString().substring(0, 16),
+                      isApproved: false,
+                    );
+                    widget.onAddOrder(newOrder);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Order placed successfully! It will be marked as completed after admin approval.')),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Place Order'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showNewOrderDialog(context),
+        backgroundColor: Colors.green[800],
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -478,14 +708,17 @@ class DashboardTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome to MiniResto!',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          'Welcome to M & D Restaurant!',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
                         Text(
-                          'Manage your restaurant efficiently',
-                          style: TextStyle(color: Colors.grey[600]),
+                          'Manage your orders efficiently',
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -494,280 +727,109 @@ class DashboardTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildSummaryCard(
-                context, '📦 Total Orders', '$totalOrders', Colors.blue),
-            const SizedBox(height: 12),
-            _buildSummaryCard(context, '💰 Total Earnings',
-                'Rs ${earnings.toStringAsFixed(0)}', Colors.green),
-            const SizedBox(height: 12),
-            _buildSummaryCard(
-                context, '⏳ Pending Orders', '$pendingOrders', Colors.orange),
-            const SizedBox(height: 24),
-            _buildMenuItemsSummary(context),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Total Orders',
+                    totalOrders.toString(),
+                    Icons.receipt,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildStatCard(
+                    'Total Earnings',
+                    'PKR ${totalEarnings.toStringAsFixed(2)}',
+                    Icons.attach_money,
+                    Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Pending Approval',
+                    pendingOrders.toString(),
+                    Icons.pending_actions,
+                    Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Recent Orders',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: widget.orders.isEmpty
+                  ? const Center(
+                      child: Text('No orders yet. Place your first order!'),
+                    )
+                  : ListView.builder(
+                      itemCount: widget.orders.length,
+                      itemBuilder: (context, index) {
+                        final order = widget.orders[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: const Icon(Icons.fastfood),
+                            title: Text(order.itemName),
+                            subtitle: Text(
+                                'Qty: ${order.quantity} | PKR ${order.total.toStringAsFixed(2)}'),
+                            trailing: Chip(
+                              label: Text(
+                                order.status == 'Rejected' ? 'Rejected' : 
+                                order.isApproved ? 'Approved' : 'Pending',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              backgroundColor: order.status == 'Rejected' 
+                                  ? Colors.red[100] 
+                                  : order.isApproved 
+                                      ? Colors.green[100] 
+                                      : Colors.orange[100],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => NewOrderScreen(
-                onSave: onAddOrder, menuItems: menuItems),
-            ),
-          );
-        },
-        label: const Text('Add Order'),
-        icon: const Icon(Icons.add),
-        backgroundColor: Colors.green[800],
-      ),
     );
   }
 
-  Widget _buildSummaryCard(
-      BuildContext context, String title, String value, Color color) {
-    return Card(
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            _getIconForTitle(title),
-            color: color,
-          ),
-        ),
-        title: Text(title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        trailing: Text(
-          value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-        ),
-      ),
-    );
-  }
-
-  IconData _getIconForTitle(String title) {
-    if (title.contains('Orders')) return Icons.shopping_bag;
-    if (title.contains('Earnings')) return Icons.attach_money;
-    if (title.contains('Pending')) return Icons.hourglass_bottom;
-    return Icons.info;
-  }
-
-  Widget _buildMenuItemsSummary(BuildContext context) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '🍽️ Menu Summary',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Total Items: ${menuItems.length}',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ...menuItems
-                    .map((item) => Chip(
-                          label: Text(item.name),
-                          backgroundColor: Colors.green[50],
-                          labelStyle: TextStyle(color: Colors.green[800]),
-                          avatar: Icon(Icons.restaurant,
-                              size: 18, color: Colors.green[800]),
-                        ))
-                    .toList()
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                Icon(icon, color: color),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ------------------ NEW ORDER SCREEN ------------------
-class NewOrderScreen extends StatefulWidget {
-  final Function(Order) onSave;
-  final List<MenuItem> menuItems;
-
-  const NewOrderScreen({
-    super.key,
-    required this.onSave,
-    required this.menuItems,
-  });
-
-  @override
-  State<NewOrderScreen> createState() => _NewOrderScreenState();
-}
-
-class _NewOrderScreenState extends State<NewOrderScreen> {
-  MenuItem? selectedItem;
-  int quantity = 1;
-
-  double get total => (selectedItem != null ? selectedItem!.price * quantity : 0);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Order'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Create New Order',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Select an item from the menu and specify quantity',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<MenuItem>(
-              decoration: InputDecoration(
-                labelText: 'Select Item',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                prefixIcon: const Icon(Icons.restaurant_menu),
-              ),
-              value: selectedItem,
-              items: widget.menuItems.map((item) {
-                return DropdownMenuItem(
-                  value: item,
-                  child: Text('${item.name} - Rs ${item.price}'),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedItem = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quantity',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton.filled(
-                          onPressed:
-                              quantity > 1 ? () => setState(() => quantity--) : null,
-                          icon: const Icon(Icons.remove),
-                        ),
-                        Text(
-                          quantity.toString(),
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        IconButton.filled(
-                          onPressed: () => setState(() => quantity++),
-                          icon: const Icon(Icons.add),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Total:',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Rs ${total.toStringAsFixed(0)}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.green[800],
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: selectedItem != null
-                    ? () {
-                        final newOrder = Order(
-                          itemName: selectedItem!.name,
-                          quantity: quantity,
-                          total: total,
-                          status: 'Pending',
-                        );
-                        widget.onSave(newOrder);
-                        Navigator.pop(context);
-                      }
-                    : null,
-                icon: const Icon(Icons.check),
-                label: const Text('Confirm Order'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.green[800],
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -776,125 +838,67 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   }
 }
 
-// ------------------ ORDER MODEL ------------------
-class Order {
-  final String itemName;
-  final int quantity;
-  final double total;
-  final String status;
-
-  Order({
-    required this.itemName,
-    required this.quantity,
-    required this.total,
-    required this.status,
-  });
-
-  Order copyWith({String? status}) {
-    return Order(
-      itemName: itemName,
-      quantity: quantity,
-      total: total,
-      status: status ?? this.status,
-    );
-  }
-}
-
-// ------------------ ORDERS TAB ------------------
-class OrdersTab extends StatelessWidget {
+class OrderHistoryTab extends StatelessWidget {
   final List<Order> orders;
-  final Function(int) onApprove;
 
-  const OrdersTab({super.key, required this.orders, required this.onApprove});
+  const OrderHistoryTab({super.key, required this.orders});
 
   @override
   Widget build(BuildContext context) {
-    if (orders.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.list_alt, size: 60, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No orders yet',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create your first order from the dashboard',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
+    return Padding(
       padding: const EdgeInsets.all(16),
-      itemCount: orders.length,
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        final isPending = order.status == 'Pending';
-
-        return Card(
-          child: ListTile(
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.fastfood, color: Colors.green[800]),
-            ),
-            title: Text(
-              '${order.itemName} x${order.quantity}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text(
-              'Total: Rs ${order.total.toStringAsFixed(0)}',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isPending
-                        ? Colors.orange.withOpacity(0.1)
-                        : Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    order.status,
-                    style: TextStyle(
-                      color: isPending ? Colors.orange[800] : Colors.green[800],
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (isPending) ...[
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    icon: const Icon(Icons.check, size: 18),
-                    onPressed: () => onApprove(index),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.green[800],
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ]
-              ],
+      child: Column(
+        children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'All Orders',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          Expanded(
+            child: orders.isEmpty
+                ? const Center(
+                    child: Text('No order history available'),
+                  )
+                : ListView.builder(
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      final order = orders[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading: const Icon(Icons.history),
+                          title: Text(order.itemName),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Qty: ${order.quantity}'),
+                              Text('Total: PKR ${order.total.toStringAsFixed(2)}'),
+                              Text('Date: ${order.date}'),
+                              Text('Status: ${order.status}'),
+                            ],
+                          ),
+                          trailing: Chip(
+                            label: Text(
+                              order.status == 'Rejected' ? 'Rejected' : 
+                              order.isApproved ? 'Approved' : 'Pending',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            backgroundColor: order.status == 'Rejected' 
+                                ? Colors.red[100] 
+                                : order.isApproved 
+                                    ? Colors.green[100] 
+                                    : Colors.orange[100],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
